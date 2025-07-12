@@ -14,10 +14,6 @@ const mesaSchema = new mongoose.Schema({
         enum: ['disponible', 'ocupada', 'reservada'],
         default: 'disponible',
     },
-    qrMesa: {
-        type: String,
-        required: true,
-    },
 })
 
 const Mesa = mongoose.model('Mesa', mesaSchema);
