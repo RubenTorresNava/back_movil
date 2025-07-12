@@ -1,6 +1,5 @@
 import mongoose from 'mongoose';
-
-const MONGO_URI = "mongodb+srv://rubenbebe145rt:animales123@movil.nbbw1bw.mongodb.net/?retryWrites=true&w=majority&appName=movil";
+import { MONGO_URI } from '../config.js';
 
 export const connectDB = async () => {
     try {
