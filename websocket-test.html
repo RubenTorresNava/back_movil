@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test WebSockets - Restaurante</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        button { margin: 5px; padding: 10px 15px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        #messages { height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; background: #f9f9f9; margin: 10px 0; }
+        input, select { margin: 5px; padding: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🍽️ Test WebSockets - Sistema de Pedidos</h1>
+        
+        <div class="section">
+            <h3>Conexión</h3>
+            <button onclick="connectSocket()">Conectar</button>
+            <button onclick="disconnectSocket()">Desconectar</button>
+            <span id="status">Desconectado</span>
+        </div>
+
+        <div class="section">
+            <h3>Unirse a Salas</h3>
+            <button onclick="joinMesa()">Unirse como Mesa</button>
+            <input type="number" id="mesaId" placeholder="ID Mesa" value="1">
+            <br>
+            <button onclick="joinCocina()">Unirse como Cocina</button>
+            <button onclick="joinAdmin()">Unirse como Admin</button>
+        </div>
+
+        <div class="section">
+            <h3>Mensajes Recibidos</h3>
+            <button onclick="clearMessages()">Limpiar</button>
+            <div id="messages"></div>
+        </div>
+
+        <div class="section">
+            <h3>Simular Eventos</h3>
+            <button onclick="simulateNewPedido()">Simular Nuevo Pedido</button>
+            <button onclick="simulateStatusChange()">Cambiar Estado</button>
+            <button onclick="simulatePedidoReady()">Pedido Listo</button>
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+
+        function connectSocket() {
+            socket = io('http://localhost:3000');
+            
+            socket.on('connect', () => {
+                document.getElementById('status').innerText = 'Conectado ✅';
+                addMessage('Conectado al servidor', 'success');
+            });
+
+            socket.on('disconnect', () => {
+                document.getElementById('status').innerText = 'Desconectado ❌';
+                addMessage('Desconectado del servidor', 'error');
+            });
+
+            // Eventos de unión a salas
+            socket.on('joined-mesa', (mesaId) => {
+                addMessage(`Te uniste a la mesa ${mesaId}`, 'info');
+            });
+
+            socket.on('joined-cocina', () => {
+                addMessage('Te uniste a la cocina', 'info');
+            });
+
+            socket.on('joined-admin', () => {
+                addMessage('Te uniste como administrador', 'info');
+            });
+
+            // Eventos de pedidos
+            socket.on('nuevo-pedido', (pedido) => {
+                addMessage(`🆕 Nuevo pedido: ${JSON.stringify(pedido, null, 2)}`, 'new-order');
+            });
+
+            socket.on('pedido-confirmado', (pedido) => {
+                addMessage(`✅ Pedido confirmado: ${JSON.stringify(pedido, null, 2)}`, 'confirmed');
+            });
+
+            socket.on('pedido-actualizado', (pedido) => {
+                addMessage(`🔄 Pedido actualizado: ${JSON.stringify(pedido, null, 2)}`, 'updated');
+            });
+
+            socket.on('pedido-listo', (pedido) => {
+                addMessage(`🎉 Pedido listo: ${JSON.stringify(pedido, null, 2)}`, 'ready');
+            });
+
+            // Notificaciones generales
+            socket.on('notification', (notification) => {
+                addMessage(`📢 Notificación: ${notification.message} (${notification.type})`, 'notification');
+            });
+        }
+
+        function disconnectSocket() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+        }
+
+        function joinMesa() {
+            if (socket) {
+                const mesaId = document.getElementById('mesaId').value;
+                socket.emit('join-mesa', mesaId);
+            } else {
+                alert('Primero debes conectarte');
+            }
+        }
+
+        function joinCocina() {
+            if (socket) {
+                socket.emit('join-cocina');
+            } else {
+                alert('Primero debes conectarte');
+            }
+        }
+
+        function joinAdmin() {
+            if (socket) {
+                socket.emit('join-admin');
+            } else {
+                alert('Primero debes conectarte');
+            }
+        }
+
+        function addMessage(message, type) {
+            const messagesDiv = document.getElementById('messages');
+            const messageElement = document.createElement('div');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            messageElement.innerHTML = `<strong>${timestamp}</strong> - ${message}`;
+            messageElement.style.margin = '5px 0';
+            messageElement.style.padding = '5px';
+            messageElement.style.borderRadius = '3px';
+            
+            switch(type) {
+                case 'success':
+                    messageElement.style.backgroundColor = '#d4edda';
+                    messageElement.style.color = '#155724';
+                    break;
+                case 'error':
+                    messageElement.style.backgroundColor = '#f8d7da';
+                    messageElement.style.color = '#721c24';
+                    break;
+                case 'info':
+                    messageElement.style.backgroundColor = '#d1ecf1';
+                    messageElement.style.color = '#0c5460';
+                    break;
+                case 'new-order':
+                    messageElement.style.backgroundColor = '#fff3cd';
+                    messageElement.style.color = '#856404';
+                    break;
+                case 'ready':
+                    messageElement.style.backgroundColor = '#d4edda';
+                    messageElement.style.color = '#155724';
+                    break;
+                default:
+                    messageElement.style.backgroundColor = '#f8f9fa';
+                    messageElement.style.color = '#495057';
+            }
+            
+            messagesDiv.appendChild(messageElement);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function clearMessages() {
+            document.getElementById('messages').innerHTML = '';
+        }
+
+        // Funciones de simulación (para testing)
+        function simulateNewPedido() {
+            addMessage('Simulando nuevo pedido...', 'info');
+            // Aquí podrías hacer una llamada a tu API para crear un pedido
+        }
+
+        function simulateStatusChange() {
+            addMessage('Simulando cambio de estado...', 'info');
+            // Aquí podrías hacer una llamada a tu API para actualizar un pedido
+        }
+
+        function simulatePedidoReady() {
+            addMessage('Simulando pedido listo...', 'info');
+            // Aquí podrías hacer una llamada a tu API para marcar pedido como listo
+        }
+    </script>
+</body>
+</html>
