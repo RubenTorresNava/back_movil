@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import Usuario from '../database/models/cliente.js';
+import Usuario from '../database/models/usuario.js';
 import env from 'dotenv';
 
 // Funcion de registro de usuario
