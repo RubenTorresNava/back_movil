@@ -4,6 +4,7 @@ import corse from 'cors';
 import websocketRoutes from './route/websocket.routes.js';
 import usuarioRoutes from './route/usuario.routes.js';
 import pedidoRoutes from './route/pedido.routes.js';
+import pedidoCocinaRoutes from './route/cocina.routes.js';
 
 const app = express();
 
@@ -21,5 +22,6 @@ app.get ('/', (req, res) => {
 
 app.use('/api/usuario', usuarioRoutes);
 app.use('/api/pedido', pedidoRoutes);
+app.use('/api/pedidos-cocina', pedidoCocinaRoutes);
 
 export default app;
