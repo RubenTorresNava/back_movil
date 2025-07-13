@@ -1,34 +1,55 @@
 import Pedido from '../database/models/pedido.js';
 import { notifyNewPedido, notifyPedidoStatusChange, notifyPedidoReady } from '../service/socketService.js';
 
-// Función para crear un nuevo pedido
 export const createPedido = async (req, res) => {
-    const { cliente, mesa, productos, estado, total } = req.body;
+    const { cliente, mesa, productos, estado } = req.body; 
 
     try {
+        const productosConPrecio = await Promise.all(
+            productos.map(async (item) => {
+                const producto = await Producto.findById(item.producto);
+                return {
+                    producto: item.producto,
+                    cantidad: item.cantidad,
+                    precioUnitario: producto.precio 
+                };
+            })
+        );
+
+        const total = productosConPrecio.reduce(
+            (acc, item) => acc + (item.precioUnitario * item.cantidad),
+            0
+        );
+
         const newPedido = new Pedido({
             cliente,
             mesa,
-            productos,
+            productos: productosConPrecio,
             estado,
             total
         });
 
         await newPedido.save();
-        
-        // Poblar los datos para la notificación
-        await newPedido.populate('cliente');
-        await newPedido.populate('mesa');
-        await newPedido.populate('productos.producto');
-        
-        // Notificar a través de WebSocket
-        notifyNewPedido(newPedido);
-        
-        res.status(201).json({ message: 'Pedido creado exitosamente', pedido: newPedido });
+
+        const pedidoPoblado = await Pedido.findById(newPedido._id)
+            .populate('cliente')
+            .populate('mesa')
+            .populate('productos.producto');
+
+        notifyNewPedido(pedidoPoblado);
+
+        res.status(201).json({ 
+            message: 'Pedido creado exitosamente', 
+            pedido: pedidoPoblado 
+        });
     } catch (error) {
-        res.status(500).json({ error: 'Error al crear el pedido' });
+        console.error("Error al crear pedido:", error);
+        res.status(500).json({ 
+            error: 'Error al crear el pedido',
+            details: error.message 
+        });
     }
-}
+};
 
 // Función para obtener todos los pedidos
 export const getPedidos = async (req, res) => {
