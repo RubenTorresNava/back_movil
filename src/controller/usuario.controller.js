@@ -3,12 +3,26 @@ import jwt from 'jsonwebtoken';
 import Usuario from '../database/models/usuario.js';
 import env from 'dotenv';
 
-// Funcion de registro de usuario
+// En tu función de registro de usuarios
 export const registerUser = async (req, res) => {
-    const { name, email, password, role } = req.body;
-
     try {
-        const hashedPassword = await bcryptjs.hash(password, 10);
+        const { name, email, password, role } = req.body;
+
+        if (!name || !email || !password || !role) {
+            return res.status(400).json({ error: 'Todos los campos son requeridos'
+            });
+        }
+
+        // Verificar si el usuario ya existe
+        const existingUser = await Usuario.findOne({ email: email.toLowerCase().trim() });
+        if (existingUser) {
+            return res.status(400).json({ error: 'El usuario ya existe' });
+        }
+        
+        // Generar hash con bcryptjs
+        const salt = await bcryptjs.genSalt(10);
+        const hashedPassword = await bcryptjs.hash(password, salt);
+
         const newUser = new Usuario({
             name,
             email,
@@ -17,9 +31,10 @@ export const registerUser = async (req, res) => {
         });
 
         await newUser.save();
-        res.status(201).json({ message: 'Usuario registrado exitosamente' });
+        res.status(201).json({ message: 'Usuario registrado exitosamente', newUser});
     } catch (error) {
-        res.status(500).json({ error: 'Error al registrar el usuario' });
+        res.status(500).json({ error: error.message });
+        console.log(error);
     }
 }
 
