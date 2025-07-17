@@ -1,4 +1,6 @@
 import Pedido from '../database/models/pedido.js';
+import Producto from '../database/models/producto.js';
+import Mesa from '../database/models/mesa.js';
 import { notifyNewPedido, notifyPedidoStatusChange, notifyPedidoReady } from '../service/socketService.js';
 
 export const createPedido = async (req, res) => {
@@ -54,7 +56,7 @@ export const createPedido = async (req, res) => {
 // Función para obtener todos los pedidos
 export const getPedidos = async (req, res) => {
     try {
-        const pedidos = await Pedido.find().populate('cliente').populate('mesa').populate('productos.producto');
+        const pedidos = await Pedido.find().populate('mesa').populate('productos.producto');
         res.status(200).json(pedidos);
     } catch (error) {
         res.status(500).json({ error: 'Error al obtener los pedidos' });
