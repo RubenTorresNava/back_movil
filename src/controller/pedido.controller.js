@@ -87,15 +87,20 @@ export const createPedido = async (req, res) => {
     }
 };
 
-// Función para obtener todos los pedidos
+//funcion para traer los pedidos con el estado recibido, en preparación y listo
 export const getPedidos = async (req, res) => {
     try {
-        const pedidos = await Pedido.find().populate('mesa').populate('productos.producto');
+        const pedidos = await Pedido.find()
+            //.populate('cliente', 'nombre email')
+            .populate('mesa', 'numero estado')
+            .populate('productos.producto', 'nombre precio disponible');
+
         res.status(200).json(pedidos);
     } catch (error) {
-        res.status(500).json({ error: 'Error al obtener los pedidos' });
+        console.error('Error al obtener pedidos:', error);
+        res.status(500).json({ error: 'Error al obtener pedidos' });
     }
-}
+};
 
 // Función para actualizar el estado de un pedido
 export const updatePedido = async (req, res) => {
