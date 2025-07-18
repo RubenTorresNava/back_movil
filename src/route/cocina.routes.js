@@ -4,7 +4,7 @@ import checkRole from '../middleware/checkrole.middleware.js';
 
 const router = Router();
 
-router.get ('/pedidos-cocina', checkRole(['cocinero']), pedidoController.getPedidos);
-router.put('/pedidos-cocina/:id', checkRole(['cocinero']), pedidoController.updatePedido);
+router.get ('/pedidos', checkRole(['cocinero']), pedidoController.getPedidos);
+router.put('/pedidos/:id', checkRole(['cocinero']), pedidoController.updatePedido);
 
 export default router;

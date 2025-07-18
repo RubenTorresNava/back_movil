@@ -1,6 +1,7 @@
 import Pedido from '../database/models/pedido.js';
 import Producto from '../database/models/producto.js';
 import Mesa from '../database/models/mesa.js';
+import Usuario from '../database/models/usuario.js';
 import { notifyNewPedido, notifyPedidoStatusChange, notifyPedidoReady } from '../service/socketService.js';
 
 export const createPedido = async (req, res) => {
@@ -91,14 +92,39 @@ export const createPedido = async (req, res) => {
 export const getPedidos = async (req, res) => {
     try {
         const pedidos = await Pedido.find()
-            //.populate('cliente', 'nombre email')
+            .populate({
+                path: 'cliente',
+                select: 'name', // Selecciona solo el campo 'name' del usuario
+                options: { lean: true } // Mejor rendimiento
+            })
             .populate('mesa', 'numero estado')
-            .populate('productos.producto', 'nombre precio disponible');
+            .populate('productos.producto', 'nombre precio')
+            .lean(); // Convertir a objetos simples para mejor manipulación
 
-        res.status(200).json(pedidos);
+        // Formatear la respuesta para mostrar el nombre del cliente directamente
+        const pedidosFormateados = pedidos.map(pedido => ({
+            ...pedido,
+            cliente: pedido.cliente?.name || 'Cliente no disponible',
+            productos: pedido.productos.map(item => ({
+                ...item,
+                producto: item.producto?.nombre || 'Producto no disponible',
+                precioUnitario: item.producto?.precio || 0
+            }))
+        }));
+
+        res.status(200).json({
+            success: true,
+            count: pedidosFormateados.length,
+            pedidos: pedidosFormateados
+        });
+
     } catch (error) {
         console.error('Error al obtener pedidos:', error);
-        res.status(500).json({ error: 'Error al obtener pedidos' });
+        res.status(500).json({
+            success: false,
+            error: 'Error al obtener pedidos',
+            details: process.env.NODE_ENV === 'development' ? error.message : null
+        });
     }
 };
 
