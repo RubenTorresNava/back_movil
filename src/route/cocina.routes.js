@@ -1,6 +1,6 @@
 import * as pedidoController from '../controller/pedido.controller.js';
 import { Router } from 'express';
-import checkRole from '../middleware/checkrole.js';
+import checkRole from '../middleware/checkrole.middleware.js';
 
 const router = Router();
 

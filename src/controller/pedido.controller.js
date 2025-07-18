@@ -4,51 +4,85 @@ import Mesa from '../database/models/mesa.js';
 import { notifyNewPedido, notifyPedidoStatusChange, notifyPedidoReady } from '../service/socketService.js';
 
 export const createPedido = async (req, res) => {
-    const { cliente, mesa, productos, estado } = req.body; 
+    const { numeroMesa, productos } = req.body; // Eliminamos 'estado' del destructuring
+    const clienteId = req.clienteId;
 
     try {
+        // Validación básica
+        if (!numeroMesa || !productos?.length) {
+            return res.status(400).json({ error: 'Número de mesa y productos son requeridos' });
+        }
+
+        // 1. Buscar mesa
+        const mesa = await Mesa.findOne({ numero: numeroMesa });
+        if (!mesa || mesa.estado !== 'disponible') {
+            return res.status(400).json({ error: 'Mesa no disponible' });
+        }
+
+        // 2. Procesar productos
         const productosConPrecio = await Promise.all(
             productos.map(async (item) => {
-                const producto = await Producto.findById(item.producto);
+                if (!item.nombreProducto || !item.cantidad) {
+                    throw new Error('Datos de producto incompletos');
+                }
+
+                const producto = await Producto.findOne({ 
+                    nombre: item.nombreProducto 
+                });
+                
+                if (!producto) {
+                    throw new Error(`Producto "${item.nombreProducto}" no encontrado`);
+                }
+                if (!producto.disponible) {
+                    throw new Error(`Producto "${item.nombreProducto}" no disponible`);
+                }
+
                 return {
-                    producto: item.producto,
+                    producto: producto._id,
+                    nombreProducto: producto.nombre,
                     cantidad: item.cantidad,
-                    precioUnitario: producto.precio 
+                    precioUnitario: producto.precio
                 };
             })
         );
 
-        const total = productosConPrecio.reduce(
-            (acc, item) => acc + (item.precioUnitario * item.cantidad),
-            0
-        );
-
+        // 3. Crear pedido (sin especificar estado)
         const newPedido = new Pedido({
-            cliente,
-            mesa,
+            cliente: clienteId,
+            mesa: mesa._id,
             productos: productosConPrecio,
-            estado,
-            total
+            total: productosConPrecio.reduce((sum, item) => sum + (item.precioUnitario * item.cantidad), 0)
+            // El estado 'recibido' se asignará automáticamente por el default del schema
         });
 
-        await newPedido.save();
+        // 4. Actualizar mesa y guardar en transacción
+        mesa.estado = 'ocupada';
+        await Promise.all([newPedido.save(), mesa.save()]);
 
-        const pedidoPoblado = await Pedido.findById(newPedido._id)
-            .populate('cliente')
-            .populate('mesa')
-            .populate('productos.producto');
+        // 5. Preparar respuesta
+        const response = {
+            ...newPedido.toObject(),
+            mesa: numeroMesa,
+            productos: productosConPrecio.map(p => ({
+                nombre: p.nombreProducto,
+                cantidad: p.cantidad,
+                precio: p.precioUnitario
+            }))
+        };
 
-        notifyNewPedido(pedidoPoblado);
+        // Notificar (WebSocket/Socket.io)
+        notifyNewPedido(response);
 
-        res.status(201).json({ 
-            message: 'Pedido creado exitosamente', 
-            pedido: pedidoPoblado 
+        res.status(201).json({
+            success: true,
+            pedido: response
         });
+
     } catch (error) {
-        console.error("Error al crear pedido:", error);
-        res.status(500).json({ 
-            error: 'Error al crear el pedido',
-            details: error.message 
+        console.error('Error al crear pedido:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Error al crear pedido'
         });
     }
 };

@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import * as pedidoController from '../controller/pedido.controller.js';
+import {authenticate} from '../middleware/auth.middleware.js';
 
 const router = Router();
 
-router.post('/pedidos', pedidoController.createPedido);
-router.get('/pedidos', pedidoController.getPedidos);
-router.put('/pedidos/:id', pedidoController.updatePedido);
+router.post('/pedidos', authenticate, pedidoController.createPedido);
+router.get('/pedidos', authenticate, pedidoController.getPedidos);
+router.put('/pedidos/:id', authenticate, pedidoController.updatePedido);
 
 export default router;
