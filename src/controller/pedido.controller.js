@@ -131,3 +131,38 @@ export const updatePedido = async (req, res) => {
     }
 }
 
+// pedidosController.js
+export const getPedidosByUser = async (req, res) => {
+    try {
+        const pedidos = await Pedido.find({ cliente: req.clienteId }) // Filtra por ID del usuario
+            .populate('mesa', 'numero capacidad')
+            .populate('productos.producto', 'nombre precio')
+            .sort({ fechaCreacion: -1 }); // Ordena por fecha descendente
+
+        // Formatear la respuesta para mostrar información clara
+        const pedidosFormateados = pedidos.map(pedido => ({
+            _id: pedido._id,
+            fecha: pedido.fechaCreacion,
+            estado: pedido.estado,
+            total: pedido.total,
+            mesa: pedido.mesa.numero,
+            productos: pedido.productos.map(item => ({
+                nombre: item.producto.nombre,
+                cantidad: item.cantidad,
+                precio: item.precioUnitario
+            }))
+        }));
+
+        res.status(200).json({
+            success: true,
+            pedidos: pedidosFormateados
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: 'Error al obtener pedidos',
+            details: error.message
+        });
+    }
+};
