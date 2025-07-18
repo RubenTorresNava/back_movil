@@ -94,12 +94,12 @@ export const getPedidos = async (req, res) => {
         const pedidos = await Pedido.find()
             .populate({
                 path: 'cliente',
-                select: 'name', // Selecciona solo el campo 'name' del usuario
-                options: { lean: true } // Mejor rendimiento
+                select: 'name', 
+                options: { lean: true } 
             })
             .populate('mesa', 'numero estado')
             .populate('productos.producto', 'nombre precio')
-            .lean(); // Convertir a objetos simples para mejor manipulación
+            .lean();
 
         // Formatear la respuesta para mostrar el nombre del cliente directamente
         const pedidosFormateados = pedidos.map(pedido => ({
@@ -160,7 +160,7 @@ export const updatePedido = async (req, res) => {
 // pedidosController.js
 export const getPedidosByUser = async (req, res) => {
     try {
-        const pedidos = await Pedido.find({ cliente: req.clienteId }) // Filtra por ID del usuario
+        const pedidos = await Pedido.find({ cliente: req.clienteId }) 
             .populate('mesa', 'numero capacidad')
             .populate('productos.producto', 'nombre precio')
             .sort({ fechaCreacion: -1 }); // Ordena por fecha descendente

@@ -1,4 +1,3 @@
-// Asegúrate de importar jwt al inicio del archivo
 import jwt from 'jsonwebtoken';
 
 export const authenticate = async (req, res, next) => {
@@ -15,7 +14,6 @@ export const authenticate = async (req, res, next) => {
     }
 
     try {
-        // Verifica que JWT_SECRET esté configurado
         if (!process.env.JWT_SECRET) {
             throw new Error('JWT_SECRET no está configurado en las variables de entorno');
         }
