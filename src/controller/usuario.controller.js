@@ -1,14 +1,13 @@
 import bcryptjs from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import Usuario from '../database/models/usuario.js';
 import env from 'dotenv';
 
 // En tu función de registro de usuarios
 export const registerUser = async (req, res) => {
     try {
-        const { name, email, password, role } = req.body;
+        const { name, email, password } = req.body;
 
-        if (!name || !email || !password || !role) {
+        if (!name || !email || !password) {
             return res.status(400).json({ error: 'Todos los campos son requeridos'
             });
         }
@@ -25,8 +24,7 @@ export const registerUser = async (req, res) => {
         const newUser = new Usuario({
             name,
             email,
-            password: hashedPassword,
-            role
+            password: hashedPassword
         });
 
         await newUser.save();
@@ -58,19 +56,11 @@ export const loginUser = async (req, res) => {
             return res.status(401).json({ error: 'Credenciales inválidas' });
         }
 
-        const token = jwt.sign(
-            { id: user._id, role: user.role },
-            process.env.JWT_SECRET,
-            { expiresIn: '8h' }
-        );
-
         res.json({
-            token,
             user: {
                 id: user._id,
                 name: user.name,
-                email: user.email,
-                role: user.role
+                email: user.email
             }
         });
 
@@ -82,7 +72,7 @@ export const loginUser = async (req, res) => {
     }
 };
 
-//cerra sesión de usuario y elimina el token
+//cerra sesión de usuario
 export const logoutUser = (req, res) => {
     res.status(200).json({ message: 'Sesión cerrada exitosamente' });
 }

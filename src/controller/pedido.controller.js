@@ -1,74 +1,29 @@
 import Pedido from '../database/models/pedido.js';
-import Producto from '../database/models/producto.js';
-import Mesa from '../database/models/mesa.js';
-import Usuario from '../database/models/usuario.js';
 import { notifyNewPedido, notifyPedidoStatusChange, notifyPedidoReady } from '../service/socketService.js';
 
 export const createPedido = async (req, res) => {
-    const { numeroMesa, productos } = req.body; // Eliminamos 'estado' del destructuring
-    const clienteId = req.clienteId;
+    const { numeroMesa, pedidos, total } = req.body;
 
     try {
         // Validación básica
-        if (!numeroMesa || !productos?.length) {
-            return res.status(400).json({ error: 'Número de mesa y productos son requeridos' });
+        if (!numeroMesa || !pedidos?.length || !total) {
+            return res.status(400).json({ error: 'Número de mesa, pedidos y total son requeridos' });
         }
 
-        // 1. Buscar mesa
-        const mesa = await Mesa.findOne({ numero: numeroMesa });
-        if (!mesa || mesa.estado !== 'disponible') {
-            return res.status(400).json({ error: 'Mesa no disponible' });
-        }
-
-        // 2. Procesar productos
-        const productosConPrecio = await Promise.all(
-            productos.map(async (item) => {
-                if (!item.nombreProducto || !item.cantidad) {
-                    throw new Error('Datos de producto incompletos');
-                }
-
-                const producto = await Producto.findOne({ 
-                    nombre: item.nombreProducto 
-                });
-                
-                if (!producto) {
-                    throw new Error(`Producto "${item.nombreProducto}" no encontrado`);
-                }
-                if (!producto.disponible) {
-                    throw new Error(`Producto "${item.nombreProducto}" no disponible`);
-                }
-
-                return {
-                    producto: producto._id,
-                    nombreProducto: producto.nombre,
-                    cantidad: item.cantidad,
-                    precioUnitario: producto.precio
-                };
-            })
-        );
-
-        // 3. Crear pedido (sin especificar estado)
+        // Crear pedido
         const newPedido = new Pedido({
-            cliente: clienteId,
-            mesa: mesa._id,
-            productos: productosConPrecio,
-            total: productosConPrecio.reduce((sum, item) => sum + (item.precioUnitario * item.cantidad), 0)
-            // El estado 'recibido' se asignará automáticamente por el default del schema
+            numeroMesa,
+            pedidos,
+            total,
+            status: 1 // recibido por defecto
         });
 
-        // 4. Actualizar mesa y guardar en transacción
-        mesa.estado = 'ocupada';
-        await Promise.all([newPedido.save(), mesa.save()]);
+        await newPedido.save();
 
-        // 5. Preparar respuesta
+        // Preparar respuesta
         const response = {
             ...newPedido.toObject(),
-            mesa: numeroMesa,
-            productos: productosConPrecio.map(p => ({
-                nombre: p.nombreProducto,
-                cantidad: p.cantidad,
-                precio: p.precioUnitario
-            }))
+            pedidos: newPedido.pedidos
         };
 
         // Notificar (WebSocket/Socket.io)
@@ -88,34 +43,17 @@ export const createPedido = async (req, res) => {
     }
 };
 
-//funcion para traer los pedidos con el estado recibido, en preparación y listo
+// Función para traer todos los pedidos
 export const getPedidos = async (req, res) => {
     try {
         const pedidos = await Pedido.find()
-            .populate({
-                path: 'cliente',
-                select: 'name', 
-                options: { lean: true } 
-            })
-            .populate('mesa', 'numero estado')
-            .populate('productos.producto', 'nombre precio')
+            .sort({ fechaCreacion: -1 })
             .lean();
-
-        // Formatear la respuesta para mostrar el nombre del cliente directamente
-        const pedidosFormateados = pedidos.map(pedido => ({
-            ...pedido,
-            cliente: pedido.cliente?.name || 'Cliente no disponible',
-            productos: pedido.productos.map(item => ({
-                ...item,
-                producto: item.producto?.nombre || 'Producto no disponible',
-                precioUnitario: item.producto?.precio || 0
-            }))
-        }));
 
         res.status(200).json({
             success: true,
-            count: pedidosFormateados.length,
-            pedidos: pedidosFormateados
+            count: pedidos.length,
+            pedidos: pedidos
         });
 
     } catch (error) {
@@ -128,60 +66,47 @@ export const getPedidos = async (req, res) => {
     }
 };
 
-// Función para actualizar el estado de un pedido
+// Función para actualizar el status de un pedido
 export const updatePedido = async (req, res) => {
     const { id } = req.params;
-    const { estado } = req.body;
+    const { status } = req.body;
 
     try {
-        const updatedPedido = await Pedido.findByIdAndUpdate(id, { estado }, { new: true })
-            .populate('cliente')
-            .populate('mesa')
-            .populate('productos.producto');
+        const updatedPedido = await Pedido.findByIdAndUpdate(id, { status }, { new: true });
             
         if (!updatedPedido) {
             return res.status(404).json({ error: 'Pedido no encontrado' });
         }
 
-        // Notificar cambio de estado a través de WebSocket
+        // Notificar cambio de status a través de WebSocket
         notifyPedidoStatusChange(updatedPedido);
         
-        // Si el estado es "listo", enviar notificación especial
-        if (estado === 'listo') {
+        // Si el status es "listo" (3), enviar notificación especial
+        if (status === 3) {
             notifyPedidoReady(updatedPedido);
         }
         
-        res.status(200).json({ message: 'Estado del pedido actualizado exitosamente', pedido: updatedPedido });
+        res.status(200).json({ message: 'Status del pedido actualizado exitosamente', pedido: updatedPedido });
     } catch (error) {
         res.status(500).json({ error: 'Error al actualizar el pedido' });
     }
 }
 
-// pedidosController.js
+// Función para obtener pedidos por número de mesa
 export const getPedidosByUser = async (req, res) => {
+    const { numeroMesa } = req.query;
+    
+    if (!numeroMesa) {
+        return res.status(400).json({ error: 'numeroMesa es requerido' });
+    }
+    
     try {
-        const pedidos = await Pedido.find({ cliente: req.clienteId }) 
-            .populate('mesa', 'numero capacidad')
-            .populate('productos.producto', 'nombre precio')
-            .sort({ fechaCreacion: -1 }); // Ordena por fecha descendente
-
-        // Formatear la respuesta para mostrar información clara
-        const pedidosFormateados = pedidos.map(pedido => ({
-            _id: pedido._id,
-            fecha: pedido.fechaCreacion,
-            estado: pedido.estado,
-            total: pedido.total,
-            mesa: pedido.mesa.numero,
-            productos: pedido.productos.map(item => ({
-                nombre: item.producto.nombre,
-                cantidad: item.cantidad,
-                precio: item.precioUnitario
-            }))
-        }));
+        const pedidos = await Pedido.find({ numeroMesa }) 
+            .sort({ fechaCreacion: -1 });
 
         res.status(200).json({
             success: true,
-            pedidos: pedidosFormateados
+            pedidos: pedidos
         });
 
     } catch (error) {

@@ -1,32 +1,20 @@
 import mongoose from 'mongoose';
 
 const pedidoSchema = new mongoose.Schema({
-    cliente: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Usuario',
-        required: true,
-    },
-    mesa: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Mesa',
-        required: true,
-    },
-    productos: [{
-        producto: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'Producto',
-            required: true,
-        },
-        cantidad: {
-            type: Number,
-            required: true,
-            min: 1,
-        },
-    }],
-    estado: {
+    pedidos: [{
         type: String,
-        enum: ['recibido', 'en preparación', 'listo', 'cancelado'],
-        default: 'recibido',
+        required: true,
+    }],
+    numeroMesa: {
+        type: String,
+        required: true,
+    },
+    status: {
+        type: Number,
+        required: true,
+        default: 1, // 1: recibido, 2: en preparación, 3: listo, 4: cancelado
+        min: 1,
+        max: 4,
     },
     total: {
         type: Number,

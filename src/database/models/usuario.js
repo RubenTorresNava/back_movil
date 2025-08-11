@@ -13,11 +13,6 @@ const usuario = new mongoose.Schema({
     password: {
         type: String,
         required: true,
-    },
-    role: {
-        type: String,
-        enum: ['cliente', 'cocinero', 'mesero', 'administrador'],
-        default: 'cliente',
     }
 });
 
